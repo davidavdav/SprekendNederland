@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 ## (c) 2015 David A. van Leeuwen
 
-import MySQLdb
+import sqlalchemy
 
-db = MySQLdb.connect(read_default_file="~/.my.cnf")
-c = db.cursor()
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
-c.execute("""select * from questions""", ())
+Base = automap_base()
 
-for row in c:
-    print " ".join([str(x) for x in row[0:2]])
+engine = create_engine("mysql://sn@127.0.0.1/sn")
+Base.prepare(engine, reflect=True)
+
+Questions = Base.classes.questions
+session = Session(engine)
+
+for q in session.query(Questions):
+    print q.id, q.question
