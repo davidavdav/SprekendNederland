@@ -8,6 +8,8 @@ tablere = re.compile("CREATE TABLE `(\w+)`")
 keyre = re.compile("KEY `(\w+)_id_index` \(`(\w+)_id`\)")
 #keyre = re.compile("KEY")
 
+ignore = ["question_recording"]
+
 for line in sys.stdin:
     m = tablere.search(line)
     if m:
@@ -17,8 +19,11 @@ for line in sys.stdin:
     if m:
         index = m.group(1)
         key = m.group(2)
-        comma = "," if line.strip()[-1] == "," else ""
-        print "KEY `%s_id_index` (`%s_id`), CONSTRAINT `%s_ibfk_%d` FOREIGN KEY (`%s_id`) REFERENCES `%s` (`id`)%s ON DELETE CASCADE" % (index, key, table, i, key, key, comma)
-        i += 1
-    else:
-        print line.strip()
+        if not key in ignore:
+            comma = "," if line.strip()[-1] == "," else ""
+            print " KEY `%s_id_index` (`%s_id`),\n CONSTRAINT `%s_ibfk_%d` FOREIGN KEY (`%s_id`) REFERENCES `%ss` (`id`) ON DELETE CASCADE%s" % (index, key, table, i, key, key, comma)
+            i += 1
+            continue
+
+    line = line.replace("ENGINE=MyISAM", "ENGINE=InnoDB")
+    print line.strip()
