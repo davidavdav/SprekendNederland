@@ -49,7 +49,9 @@ if __name__ == "__main__":
     for q in query:
         print "Question %d %s: %d answers" % (q.id, q.question, len(q.tasks_collection))
         for t in q.tasks_collection:
-            print "  task %d, recording %d, theme %d" % (t.id, nonint(t.question_recording_id), t.theme_id)
+            if t.done==0 or not t.answer_id:
+                continue
+#            print "  task %d, recording %d, theme %d" % (t.id, nonint(t.question_recording_id), t.theme_id)
             if t.question_recording_id:
                 ## a task about a recording
                 for a, r in session.query(Answers, Recordings).filter(Answers.id==t.answer_id, Recordings.id==t.question_recording_id):
@@ -63,7 +65,7 @@ if __name__ == "__main__":
                         print "    answer %d value %d given by %d" % (a.id, nonint(a.answer_numeric), t.profile_id)
                     elif q.component_id == 4: ## location
                         _, loc = session.query(AnswerLocation, Locations).filter(AnswerLocation.answer_id==a.id, AnswerLocation.location_id==Locations.id).first()
-                        print "    answer %d value (%8.6f,%8.6f,%d) given by %d" % (a.id, loc.latitude, loc.longitude, loc.mapzoom, t.profile_id)
+                        print "    answer %d value (%8.6f, %8.6f, %d) given by %d" % (a.id, loc.latitude, loc.longitude, loc.mapzoom, t.profile_id)
                     else:
                         _, ao = session.query(AnswerOption, Options).filter(AnswerOption.answer_id==a.id, AnswerOption.option_id==Options.id).first()
                         print "    answer %d value %s given by %d" % (a.id, ao.value, t.profile_id)
