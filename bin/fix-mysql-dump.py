@@ -8,7 +8,7 @@ tablere = re.compile("CREATE TABLE `(\w+)`")
 keyre = re.compile("KEY `(\w+)_id_index` \(`(\w+)_id`\)")
 #keyre = re.compile("KEY")
 
-ignore = ["question_recording"]
+ignore = ["question_recording", "user"]
 
 for line in sys.stdin:
     m = tablere.search(line)
