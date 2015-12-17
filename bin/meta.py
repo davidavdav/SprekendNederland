@@ -57,11 +57,12 @@ for q in qq.filter(Components.type == "location"):
         for k, v in zip(qids, [l.longitude, l.latitude, l.mapzoom]):
             meta[pid][k] = v
 
+logging.info("Total %d pids found", len(meta))
 ## dump the data in a big table
 cols = sorted(cols)
-print  ", ".join([string(col) for col in ["pid"] + cols])
+print  ",".join([string(col) for col in ["pid"] + cols])
 for pid in sorted(meta.keys()):
     m = meta[pid]
-    print ", ".join([string(pid)] + [string(m.get(qid)) for qid in cols])
+    print ",".join([string(pid)] + [string(m.get(qid)) for qid in cols])
 
 

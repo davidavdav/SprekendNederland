@@ -14,7 +14,7 @@ args = p.parse_args()
 
 question = session.query(Questions).filter(Questions.id == args.question).first()
 if not question:
-    print "Culd not find question"
+    print "Could not find question"
     sys.exit(1)
 
 ## some metadata: sex
