@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## (c) 2015 David A. van Leeuwen
 
 ## This script adds "FOREIGN KEY" expressions to the Sprekend Nederland database dump
 

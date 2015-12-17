@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## (c) 2015 David A. van Leeuwen
 
 ## faster select, do the joins in SQL.
 

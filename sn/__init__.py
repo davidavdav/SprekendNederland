@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## (c) 2015 David A. van Leeuwen
 
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session #, relationship

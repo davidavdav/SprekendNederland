@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## (c) 2015 David A. van Leeuwen
 
 ## This script extracts all metadata, and generates a big table
 

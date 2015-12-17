@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+## (c) 2015 David A. van Leeuwen
 
 ## Prepare data for scikit-learn.
 ## input: <category>.txt file, 1 doc / line
