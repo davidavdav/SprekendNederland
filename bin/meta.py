@@ -46,16 +46,15 @@ for q in qq.filter(Components.type == "slider"):
 
 for q in qq.filter(Components.type == "location"):
     logging.info("Question %d: %s", q.id, q.question)
-    qids = ["q%02d-%s" % (q.id, s) for s in ["long", "lat", "zoom"]]
-    for qid in qids:
-        cols.add(qid)
+    qid = "q%02d" % q.id
+    cols.add(qid)
     aq = session.query(Tasks, Locations).join(Answers, AnswerLocation).filter(Tasks.question_id == q.id, AnswerLocation.location_id == Locations.id)
     for t, l in aq:
         pid = t.profile_id
-        if not pid in meta:
-            meta[pid] = dict()
-        for k, v in zip(qids, [l.longitude, l.latitude, l.mapzoom]):
-            meta[pid][k] = v
+        addto(meta, pid, qid, "%8.6f/%8.6f/%d" % (l.longitude, l.latitude, l.mapzoom))
+        ## in R, split such a column using
+        ## spl <- function(x, n) as.numeric(strsplit(as.character(x), "/")[[1]][n])
+        ## q03long <- mapply(spl, m$q03, 1)
 
 logging.info("Total %d pids found", len(meta))
 ## dump the data in a big table
