@@ -44,7 +44,7 @@ need to insert the data into database, using administrator rights to do so:
 cat dump.sql | bin/fix-mysql-dump.py | mysql sn -u root -p ## and type password
 ```
 The `fix-mysql-dump.py` script changes the database engine from `MyISAM` to `InnoDB`, adds foreign key constraints to the tables, 
-and removes references to unavailable tables.  This makes it possible for SALAlchemy to do its clever object relation mapping 
+and removes references to unavailable tables.  This makes it possible for SQLAlchemy to do its clever object relation mapping 
 for us.  
 
 Test the database with a normal user:
@@ -57,11 +57,13 @@ mysql sn -u sn -e "select id, question from questions;"
 ```sh
 bin/meta.py > meta.csv
 ```
+This should take about a few seconds.
 
 ## Extract the answers to all questions
 ```sh 
 bin/answers.py > answers.csv
 ```
+This can take up to minutes.  Especially the query that finds the prompts with the recordings is hard work
 
 ## Read in the metadata into R
 ```R

@@ -24,6 +24,7 @@ Components = Base.classes.components
 Recordings = Base.classes.recordings
 Texts = Base.classes.texts
 TaskText = Base.classes.task_text
+TextGroups = Base.classes.text_groups
 
 session = Session(engine)
 
