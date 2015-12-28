@@ -27,4 +27,3 @@ TaskText = Base.classes.task_text
 TextGroups = Base.classes.text_groups
 
 session = Session(engine)
-

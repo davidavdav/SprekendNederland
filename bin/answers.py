@@ -59,7 +59,7 @@ logging.info("Number of recordings: %d", len(text))
 ## main loop over questions
 qq = session.query(Questions).join(QuestionGroups, Components).filter(QuestionGroups.name.like("Vragenlijst%"))
 
-print ", ".join([string(x) for x in ["qid", "atype", "qlist", "qtype", "lid", "sid", "value", "prompt"]])
+print ", ".join([string(x) for x in ["qid", "atype", "qlist", "utype", "lid", "sid", "value", "prompt"]])
 
 for q in qq.filter(Components.type == "slider"):
     logging.info("Question %d: %s", q.id, q.question)

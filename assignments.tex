@@ -1,0 +1,206 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{fullpage} %% part of the preprint page
+\usepackage{url}
+\usepackage{exercise}
+\usepackage{graphicx}
+
+\renewcommand\ExerciseHeader{\par\medskip\noindent\textbf{\ExerciseName~\ExerciseHeaderNB} ---}
+
+\def\fig#1{Fig.~\ref{fig:#1}}
+\def\sec#1{Section~\ref{sec:#1}}
+\def\tab#1{Table~\ref{tab:#1}}
+\def\eq#1{(\ref{eq:#1})}
+\def\Eq#1{Equation~\eq{#1}}
+\def\ex#1{exercise~\ref{ex:#1}}
+
+%% make \_ math-mode dependent
+\let\underscore=\_
+\def\_{\checkmath_\underscaore}
+\def\checkmath#1#2{\ifmmode\def\next##1{#1{\rm##1}}\else\let\next=#2\fi\next}
+
+%% automatic math mode
+\def\math#1{\relax\ifmmode#1\else$#1$\fi}
+
+\catcode`\|=\active
+\def|#1|{\ifmmode\hbox{\texttt{#1}}\else\texttt{#1}\fi}
+\def\<#1>{\ifmmode \langle\hbox{\textrm{\textit{#1}}}\rangle\else$\langle\hbox{\textrm{\textit{#1}}}\rangle$\fi}
+
+\def\sn{\emph{Sprekend Nederland}}
+
+\title{Assignments in R: The ``Sprekend Nederland'' database.}
+\author{David van Leeuwen}
+\date{7 jan 2016}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+``Sprekend Nederland'' is a project that collects spoken accents in The Netherlands, as well as opinions about these accents.  It launched in December 2015, and is currently still going on---if you can speak Dutch you are invited to participate, see \url{http://www.ntr.nl/sprekendnederland}.  
+
+The actual data (the audio recordings, answers to all opinion questions), as well as metadata about the participants are all collected in a big relational database.  Working with databases is rather complicated, and far beyond the scope of this course.  However, the data itself gives us a great opportunity to think about how data is stored, and how we can extract the data in a meaningful way. 
+
+\subsection{Preparation}
+
+In the tools package you will find a directory |sn|.  Change your working directory so that the data and some tools are available. 
+
+The data is organized in so-called ``tables'. These is a collection of ``records'', a collection of values belonging to the same item.  It is probably easiest to just have a quick look into the data.  
+
+For this assignment, we've collected some relevant data in the table |answers|. Let's first inspect the file using |less|:
+\begin{verbatim}
+$ less tables/answers.csv
+\end{verbatim}
+Remember, you can move about using \<space> to scroll down, and |b| to scroll back, and you exit the inspection with |q|.  You can see that the first line contains a `header', an indication of the names of the columns in the table.  The following lines contain the data records.  
+\begin{Exercise}
+  Use your proviously obtained skills with the command line to quickly find out (|cat|, |wc| and |grep| are you friends). 
+  \Question{How many answers does the table |answers.csv| contain?}
+  \Question{How many answers are given to question |q53|?}
+  \Question{How many answers are given to questions that are about a "droomhuis"?}
+  \Question{How many answers are given to questions that are \emph{not} of the type ``slider''? (Look at column |atype|)}
+\end{Exercise}
+
+\section{Descriptive statistics: mucking about with the data}
+
+Now this is all nice and quick (in principle, when you have got use to the bas command line and everything), but it isn't very structured, or even exact (did you think of not counting the header line?).  It is better to do this in an environment that is designed for these kind of quick analyses.  And we wil use ``R'' for that. 
+
+Reading in the data in \emph{any} computing environment can be a bit of a chore.  Other modules in course will teach you how to fix small problems in case data is missing, or badly formatted, or whatever.  For this assignment, however, we've fixed the table so that it can be read in quite painlessly into R.
+\begin{verbatim}
+$ R
+> read.csv("tables/answers.csv")
+\end{verbatim}
+Whoops---that is a lot of rows (we knew that), and even R finds that too many to display. And the information is lost.  Let's store this in an \emph{object} (or variable):
+\begin{verbatim}
+> x <- read.csv("tables/answers.csv")
+\end{verbatim}
+That probably took a while, but where is the result gone?  It is in the object |x|.  We say that the \emph{function} |read.csv()| produces an object that is known as a Dataframe, and is stored in |x| bt the assignment operator |<-|.  We can inspect the Dataframe by looking at the first few rows:
+\begin{verbatim}
+> head(x)
+\end{verbatim}
+This shows the first few rows, ir records, of the Dataframe.  You can maybe appreciate that R automatically assigned column names to the table.  That's great.  But otherwise, you might find that some information, e.g., the column |prompt|, is formatted a bit awkwardly.  Also, each row is prepended on the left with a `row number'.  This information is not in the original CSV data itself, but can help to identify a specific row---row numbers (or names) are unique within the Dataframe. 
+
+The function |read.csv()| did more than just reading in the data.  It took a guess at the type of data, and recognized that the question-ID column |qid| consists of character strings, whereas the listener-ID |lid| is an integer number.  
+
+Let's inspect the data in |x|.  One of the most useful functions in R, I think, is |table()|, which computes a \emph{contingency table}:
+\begin{verbatim}
+> table(x$qid)
+\end{verbatim}
+This counts how many aswers are given per question.  Does the number for |q53| look familiar?  The command you just typed uses the |\$|-notation to indicate a specific \emph{column within |x|}.  The column |x\$qid| only contains the question-ID's |q53|, |q54|, etc, and not any of the other data in the table. 
+
+The |table()| funciton figured out the available values in the data frame---in fact, secretly, |read.csv()| had already done this---the available values are called the \emph{levels} of the \emph{factor} |qid|.  This is just numenclature used by statisticians.  
+
+Still, this is not very insightful---you just see a whole lot of numbers on the screen.  But you can visualize a table, by using the general-purpose workhorse |plot()|:
+\begin{verbatim}
+> plot(table(x$qid))
+\end{verbatim}
+Somewhere on the screen a graph should pop up.  It show bars for each question-ID for which the length is indicative of the amount or rows in the Dataframe matching this question.  Now this is a lot quicker than various |grep| and |wc|'s!  Inspecting the command you typed, you see the characteristic ``mathematics'' notation of operations: the data starts at the innermost level (|x\$qid|) and then the operations ``construct a table'' is applied to the data, finally the operation ``make a graph'' is in turn applied to the table that was constructed.  Just in case you wonder, the table was made, then used for the plot, and finally thrown away---maybe you think this is a bit of a waste of computing resources, but the advantage is you don't have to do any tidying up yourself!
+
+\begin{Exercise}
+  Tables with really \emph{lots} of levels\dots
+  \Question{Make a plot of the distribution of answers over \emph{listener-IDs} |lid| (the persons who answered questions).  Is there anything remarkeable?}
+  \Question{Do the same for the \emph{speaker ID} data in column |sid|.} 
+  \Question{The same IDs for listeners and speakers refer to the same people---in \sn\ participants function both as speaker and listener.  The ID-numbers are assigned to participants in order of registration.  Can you explain the global shape of the graph?}
+\end{Exercise}
+
+A really quick overview of all information in a Dataframe is the |summary()| function.  Depending on the type of data, R does a different type of global statistics analysis.
+\begin{verbatim}
+> summary(x)
+\end{verbatim}
+For some columns, e.g., |atype| and |utype| you get summary information similar to |table()|, but for instance for |sid| you see that the fact that the data is numeric confuses R a bit.  In this case, a |table()| like analysis would have made more sense than the mean and median of the numbers---remember, these are just IDs.  But you can get a quick idea what the values of |atype| (answer type) and |utype| (utterance type) are, and their counts.  
+
+The real power of |table()| is revealed when you give it multiple arguments:
+\begin{verbatim}
+> table(x$atype, x$utype)
+\end{verbatim}
+The tables is now in a matrix form, and each number indicates how many answers are given with a specific answer type about a recording of a specific utterance type.  
+\begin{Exercise}
+  \Question{Plot the 2-dimensional table above.  How do you think you should interpret what you see?}
+  \Question{Investigate the table-interaction between column |qlist| (question list) and either |atype| or |utype|.  Which of the two shows a dependency between the two columns?}
+  \Question{Use |table()| to find out if there is a dependency between the question-ID |qid| and the answer-type |atype|.}
+\end{Exercise}
+
+\subsection{Working with the attitude judgements}
+
+So far, we've just looked at how our data points (the rows in the Dataframe) are distributed w.r.t.\ some metadata about the points. But we haven't looked at what the Dataframe actually tries to store: the answers to certain questions.  
+The answers given by the participants are actually stored (mostly) in the column |value|.  If you do a |summary(x\$value)| you'll notice that the recorded values vary quite a bit over all answers.  But you can also see that most answers are a number in the range 1--7: this is because most questions had a response option of a seven-point scale on a slider.  
+
+Let's first work with a question, |q53|, for which the actual question happened to be ``Vind je deze persoon intelligent?'' (Do you think this person is intelligent?).  The answer given by |lid| about the speaker |sid| speaking the text in |prompt| would be recorded in a 7-point slider position, where |1| represents ``not at all'' and |7| represents ``very much so''.  
+
+The problem now is that all answer-types (7-point scales, but also birth years and evel location coordinates) are all `mixed' in the column |value|.  Perhaps not ideal, but this simply is how the data was stored in the database. 
+
+With R it is quite easy to make a sub-selection of the data in a dataframe.  The function is called |subset()|, and I believe it is the second most handy function, after |table()|.  
+\begin{verbatim}
+> y <- subset(x, qid=="q53")
+\end{verbatim}
+Unimaginatively, I called the subset of rows that belong to question 53 |y|.  The |subset()| function does something that very few other programming languages can do: it accepts |qid| in its second argument even though that formally doesn't exist on its own---the function |subset()| actually knows how to combine the |x| from the first argument to know that |qid| refers to a column \emph{inside} the dataframe |x|.  |subset()| further selects rows for which its |qid| value is equal (hence the |==|, we've seen this in Python as well) to the character string ``|q53|''.  
+
+With |nrow(y)| you can find out how many answers are in the Dataframe---this should be consistent with what we learned from |table(x\$qid)|.  
+\begin{Exercise}
+  Divide the number of rows in |y| by the number of rows in |x| using the division |/|, to find out what fraction of the answers were about |q53|. 
+\end{Exercise}
+We're supposed to do something with the participant's judgements about other participants on the question |q53|---remember these were encoded as a number ranging from 1 through 7.  So first have a look at the distribution of values. 
+\begin{verbatim}
+> table(y$value)
+\end{verbatim}
+What hapened here?  The output might baflle you a bit, and quite understandably so.  Instead of a table ranging 7 values, we got a list of all kinds of values, most of which exactly 0 times.  Not very handy.  For this particular data set, it is a result of the way the different kinds of possible answers (1--7, a birth year, yes/no, a location) were all put in the column |value|.  In going from |x| to the subset |y|, R `remebered' there were also other possible answers around.  
+
+In dealing with various forms of data and subset in R, this sometimes happens.  It is annoying, and you'll need to find a way out.  Here, we'll suffice with just showing the solution for this case:
+\begin{verbatim}
+> y$value <- as.numeric(as.character(y$value))
+> table(y$value)
+\end{verbatim}
+This is more like it.  The values are now just interpreted as \emph{numbers}.  (Technically, what we're going to do next is statistically not correct, because the value judgements were not numbers, but levels like ``not at all'', ``just a little'', etc.  But for the sake of doing stuff with R, we'll go along with this). 
+
+\begin{Exercise}
+  We're going to work with the values for |q53|. % Store these in an object |v| by assigning (|<-|) the column |y\$value| to |v|.  
+  \Question{Using the functions |mean()|, |median()|, |sd()|, |min()| and |max()| compute the mean, median, standard deviation, minimum and maximum of the values |y\$value|.}
+  \Question{Plot the table for |y\$value|, using plain |plot()| and |barplot()|.  Which one do you find prettier?}
+\end{Exercise}
+We're going back to analyzing multiple questions at the same time.  We'd like to look at the questions |q53| through |q74|, since these are all aswered on a 7-point scale.  We need to make a subset of |x| again, but allow more values for |qid|.  There are some more R basics we need to use for this: the sequence operator ``|:|'', the string joining function |paste()| and the set operator |\%in\%|. 
+\begin{verbatim}
+> sevens <- paste("q", 53:74, sep="")
+> sevens
+\end{verbatim}
+The last statement---an object on is own without function or assignment---displays the value of the object  In this case, we check what the result is of the |paste()| function above.  This result is a \emph{vector} of values, i.e., whole sequence, not just a single value.  In R, everything that is a vector is prepended by the element index, starting at |[1]|, for each row that is displayed. (R does so, even if there is only a \emph{single} value, you may find that somewhat confusing in the beginning.)  The values of |sevens| are there for the strings ``|q53|'', ``|q54|'', etc. through ``|q74|''.
+\begin{Exercise}
+  \Question{Look up what ``|:|'' does by typing |?":"| at the prompt.  You should be directed to some help on |:|.  Can you figure from all of this out what |paste()| does?}
+\end{Exercise}
+
+Now we can repeat the |subset()|, but with a different condition:
+\begin{verbatim}
+> y <- subset(x, qid %in% sevens)
+> nrow(y)
+\end{verbatim}
+The condition |qid \%in\% sevens| is true for any row in Dataframe |x| for which the question-ID |qid| is one of the IDs found in the vector |sevens|.  Notice that we are re-assigning the result of the new |subset()| to an existing variable |y| that you made earlier.  Whatever was in there, is now lost, gone forever (but we can always regenerate the subset if we wish).  
+\begin{Exercise}
+  Re-apply the normalizing statement to |y\$value| like you did earlier.  You can save typing by pressing the up-arrow key multiple times, until you see the |...as.numeric(as.character(...))| statement.  Then simply press \<enter> to execute the statement.  Check afterwards that the values of the new |y| behave properly. 
+\end{Exercise}
+
+\subsection{The formula interface}
+
+Suppose we would want to analyse the mean of |value| for the different questions |qid|.  For |q53| we have just done that ``manually'' above, but it would be awkward if we'd have to do this for all questions.  There is another powerful function that can help us here 
+\begin{verbatim}
+> aggregate(value ~ qid, y, mean)
+\end{verbatim}
+The result is another Dataframe, with a column |qid| and |value|, which is the \emph{mean} of all |y\$value| for the specific |qid|.  The function |aggregate()| uses the so-called \emph{formula interface} here in the first argument.  Roughly, it looks like
+\begin{equation}
+  \label{eq:1}
+  \<dependent variable> \sim \<independent variable> [ + \cdots ]
+\end{equation}
+This means that the variable |value| is modeled as depending only |qid|.  The `model' in this case is pretty simple---it is just the mean, as specified by the 3rd argument.  Like we saw in |subset()|, the variables specified in the formula, |value| and |qid|, ``look inside'' the dataframe |y|.  
+
+\begin{Exercise} The odd one out
+  \Question{Check that the mean for |q53| is the same as calculated before}
+  \Question{Browsing through these means, can you identify the question with unusual response?}
+  \Question{Plot a |table()| of |qid| and |value| on the subset |y|.  To make it prettier, add a second argument |col=rainbow(7, start=0, end=1/3)| to the plot command.  Is the picture consistent with the previous answer?}
+  \Question{Instead of the mean, compute the median for all questions.}
+  \Question{Look up the actual question text in the file ``|questions.txt|''.  Do you understand the answers now?}
+\end{Exercise}
+
+Often, the more complicated functions in R have a formula interface.  For instance, 
+\begin{verbatim}
+> boxplot(value ~ qid, y)
+\end{verbatim}
+shows a so-called `box plot' which shows median, first and third quartiles, and indications of extremes within a distribution.  Many of the statistical analysis functions in R also use this formula interface, typically with more terms on the right-hand side of the |~|, thereby specifying more factors and optionally interactions between these factors. 
+
+\end{document}
