@@ -132,10 +132,14 @@ janee <- function() {
     x
 }
 
-value.questions <- paste("q", 53:74, sep="")
-read.answers <- function(file="answers.csv") {
+questions <- read.csv("tables/dump/questions.csv")
+value.ids <- subset(questions, question_group_id != 8 & component_id == 1)$id
+value.questions <- paste("q", value.ids, sep="")
+yesno.ids <- subset(questions, question_group_id != 8 & component_id == 2)$id
+yesno.questions <- paste("q", yesno.ids, sep="")
+read.answers <- function(file="tables/answers.csv") {
     x <- read.csv(file, header=T)
-    x$qtype <- factor(x$qtype, levels=c("describe", "words", "sentence", "speech"),
+    x$utype <- factor(x$utype, levels=c("describe", "words", "sentence", "speech"),
                       ordered=T, labels=c("picture", "words", "sentence", "spontaneous"))
     x
 }
@@ -145,7 +149,10 @@ value.answers <- function(x) {
     x$value <- as.numeric(as.character(x$value))
     x
 }
-
+yesno.answers <- function(x) {
+    x <- droplevels(subset(x, qid %in% yesno.questions))
+    x
+}
 
 ## work with entries with a minimum of answers
 select.answers <- function(x, crit="sid", min=30) {
@@ -248,9 +255,9 @@ twente <- c("Haaksbergen", "Almelo", "Borne", "Dinkelland", "Enschede", "Haaksbe
             "Hengelo", "Hof van Twente", "Losser", "Oldenzaal", "Rijssen-Holten",
             "Tubbergen", "Twenterand", "Wierden")
 tgooi <- c("Hilversum", "Bussum", "Naarden", "Huizen", "Laren", "Blaricum")
-steden <- c("Amsterdam", "Rotterdam", "Den Haag", "Utrecht", "Volendam")
+steden <- c("Amsterdam", "Rotterdam", "'s-Gravenhage", "Utrecht", "Volendam")
 
-add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.cities=F) {
+add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.cities=F, inc.ethnicity=F) {
     P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
     loc.known <- !is.na(m$q03)
     loc <- SpatialPoints(splitlocation(m$q03[loc.known]), proj4string=P4S.latlon)
@@ -259,13 +266,31 @@ add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.citi
     locdata <- over(locp, region)
     m$muni[loc.known] <- as.character(locdata$name)
     m$prov[loc.known] <- as.character(locdata$province)
+    m$group <- m$prov
     if (inc.twente)
-        m$prov[m$muni %in% twente] <- "Twente"
+        m$group[m$muni %in% twente] <- "Twente"
     if (inc.tgooi)
-        m$prov[m$muni %in% tgooi] <- "tGooi"
+        m$group[m$muni %in% tgooi] <- "tGooi"
     if (inc.cities)
-        m$prov[m$muni %in% steden] <- m$muni[m$muni %in% steden]
+        m$group[m$muni %in% steden] <- m$muni[m$muni %in% steden]
+    if (inc.ethnicity) {
+        meth <- add.ethnicity(m)
+        m$group[!is.na(meth$eth)] <- meth$eth[!is.na(meth$eth)]
+    }
     return(m)
+}
+
+ethnicities <- c("Antilianen/Arubanen", "Marokkanen", "Surinamers", "Turken")
+ethnicity.languages <- c("Papiamento", "Berbers/Tamazight", "Sranan Tongo/Surinaams", "Turks", "Arabisch")
+
+add.ethnicity <- function(m=read.meta()) {
+    m$eth <- NA
+    m$eth[m$q23 %in% ethnicities] = as.character(m$q23[m$q23 %in% ethnicities])
+    for (i in 1:5) {
+        j = ifelse(i>4, 2, i)
+        m$eth[m$q08 == ethnicity.languages[i]] = as.character(ethnicities[j])
+    }
+    m
 }
 
 loc2muni.prov <- function(x, inc.regions=FALSE) {
@@ -360,20 +385,33 @@ answer.dirk2 <- function(a=read.csv("tables/answers.csv"), m=read.meta(), type="
 ## rolechar is "l" for listener, "s" for speaker
 merge.muni.prov <- function(a, m, rolechar) {
     stopifnot(rolechar %in% c("s", "l"))
-    m <- data.frame(pid=m$pid, x.muni=m$muni, x.prov=m$prov)
-    for (i in 1:3) substr(names(m)[i], 1, 1) <- rolechar
+    m <- data.frame(pid=m$pid, x.muni=m$muni, x.prov=m$prov, x.group=m$group)
+    for (i in 1:4) substr(names(m)[i], 1, 1) <- rolechar
     merge(a, m, by=names(m)[1])
 }
 
 answer.dirk3 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
-    m <- add.muni.province(m, T, T, T)
+    m <- add.muni.province(m, T, T, T, T)
     v <- merge.muni.prov(v, m, "s")
     v <- merge.muni.prov(v, m, "l")
-    x <- aggregate(cbind(value, count) ~ s.prov + l.prov + qid, transform(v, count=1), sum)
+    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid, transform(v, count=1), sum)
     x$value <- x$value / x$count
     if (export) {
-        write.csv(aggregate(value ~ s.prov + qid, x, mean), "tables/export/dirk-speaker-region.csv")
-        write.csv(x, "tables/export/dirk-speaker-listener-region.csv")
+        write.csv(aggregate(value ~ s.group + qid, x, mean), "tables/export/dirk-speaker-group.csv")
+        write.csv(x, "tables/export/dirk-speaker-listener-group.csv")
+    }
+    x
+}
+
+answer.dirk4 <- function(v = yesno.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE){
+    m <- add.muni.province(m, T, T, T, T)
+    v <- merge.muni.prov(v, m, "s")
+    v <- merge.muni.prov(v, m, "l")
+    x <- aggregate(cbind(ja, count) ~ s.group + l.group + qid, transform(v, ja=value=="Ja", count=1), sum)
+    x$ja <- x$ja / x$count
+    if (export) {
+        write.csv(aggregate(ja ~ s.group + qid, x, mean), "tables/export/dirk-yn-speaker-group.csv")
+        write.csv(x, "tables/export/dirk-yn-speaker-listener-group.csv")
     }
     x
 }

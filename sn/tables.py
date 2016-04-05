@@ -19,7 +19,7 @@ def string(x):
     elif type(x) in [int, long, float]:
         return str(x)
     else:
-        return '"' + str(x) + '"'
+        return '"' + str(x).replace('"', '""') + '"'
 
 def writerow(fd, row):
     print >>fd, ",".join([string(x) for x in row])
