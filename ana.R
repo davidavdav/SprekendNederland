@@ -114,9 +114,9 @@ map <-function() {
     ggmap(map_nl) +
         geom_point(data=loc, aes(x=long, y=lat), size=0.5, col="purple", alpha=0.5) +
         geom_density2d(data=loc, aes(x=long, y=lat), size=0.5, col="red") +
-            stat_density2d(data=loc, aes(x=long, y=lat, fill=..level.., alpha=..level..), size=0.1, geom="polygon") +
-                scale_fill_gradient(low = "green", high = "red") +
-                    scale_alpha(range = c(0, 0.3))
+        stat_density2d(data=loc, aes(x=long, y=lat, fill=..level.., alpha=..level..), size=0.1, geom="polygon") +
+        scale_fill_gradient(low = "green", high = "red") +
+        scale_alpha(range = c(0, 0.3))
 }
 
 
@@ -219,43 +219,61 @@ extract.martijn.wieling <- function(a=read.csv("tables/answers.csv"), m=read.csv
     x
 }
 
-select.stef <- function(a=read.csv("tables/answers.csv"), m=read.meta(), recordings=read.recordings(),
+select.stef <- function(a=read.answers(), m=read.meta(), recordings=read.recordings(),
                         export = FALSE) {
-    ## geslacht, waar vandaan, geboortejaar
+    ## find municipality and province
+    loc <- loc2muni.prov(m$q03)
+    m$muni <- loc$muni
+    m$prov <- loc$prov
+    ## geslacht, langst gewoond, geboortejaar
     base <- (!is.na(m$q07) & !is.na(m$q03) & !is.na(m$q05))
     age <- 2016 - m$q05
     base <- base & (20 <= age) & (age <= 40)  & (m$q07 == "Man")
-    m <- m[base,]
-    ## find municipality and province
-    P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
-    loc <- SpatialPoints(splitlocation(m$q03), proj4string=P4S.latlon)
-    region <- NLD_muni
-    locp <- spTransform(loc, region@proj4string)
-    locdata <- over(locp, region)
-    m$muni <- locdata$name
-    m$prov <- locdata$province
-    m <- subset(m, prov %in% c("Groningen", "Drenthe", "Gelderland", "Limburg", "Noord-Holland", "Zuid-Holland"))
-    m$prov <- factor(m$prov)
+    mm <- m[base,]
+    mm <- subset(mm, prov %in% c("Groningen", "Drenthe", "Gelderland", "Limburg", "Noord-Holland", "Zuid-Holland"))
+    mm$prov <- factor(mm$prov)
     ##
-    recordings <- subset(recordings, pid %in% m$pid & text_group_id == 9) ## utype == "speech"
+    recordings <- subset(recordings, pid %in% mm$pid & text_group_id %in% c(1,9)) ## utype == "speech" or Frans' sentences
     dur <- aggregate(cbind(nrec, dur) ~ pid, transform(recordings, nrec=1), sum)
     dur <- subset(dur, dur > 15)
-    m <- merge(m, dur, by="pid")
+    mm <- merge(mm, dur, by="pid")
     if (export) {
-        a <- subset(a, sid %in% m$pid & utype=="speech")
-        recordings <- subset(recordings, pid %in% m$pid)
-        write.csv(file="tables/export/stef-meta.csv", m)
+        a <- subset(a, sid %in% mm$pid & utype=="speech")
+        recordings <- subset(recordings, pid %in% mm$pid)
+        write.csv(file="tables/export/stef-meta.csv", m) ## all metadata
         write.csv(file="tables/export/stef-answers.csv", a)
         write.csv(file="tables/export/stef-recordings.csv", recordings)
     }
-    m
+    mm
 }
 
 twente <- c("Haaksbergen", "Almelo", "Borne", "Dinkelland", "Enschede", "Haaksbergen", "Hellendoorn",
             "Hengelo", "Hof van Twente", "Losser", "Oldenzaal", "Rijssen-Holten",
             "Tubbergen", "Twenterand", "Wierden")
+achterhoek <- c("Aalten", "Berkelland", "Bronckhorst", "Doesburg", "Doetinchem", "Lochem", "Montferland", "Oost Gelre",
+            "Oude IJsselstreek", "Winterswijk", "Zutphen")
 tgooi <- c("Hilversum", "Bussum", "Naarden", "Huizen", "Laren", "Blaricum")
-steden <- c("Amsterdam", "Rotterdam", "'s-Gravenhage", "Utrecht", "Volendam")
+steden <- c("Amsterdam", "Rotterdam", "'s-Gravenhage", "Utrecht")
+
+loc2muni.prov <- function(x, inc.regions=FALSE) {
+    P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
+    loc.known <- !is.na(x)
+    coords <- splitlocation(x)
+    loc <- SpatialPoints(coords[loc.known,], proj4string=P4S.latlon)
+    region <- NLD_muni
+    locp <- spTransform(loc, region@proj4string)
+    locdata <- over(locp, region)
+    coords$muni[loc.known] <- as.character(locdata$name)
+    coords$prov[loc.known] <- as.character(locdata$province)
+    if (inc.regions) {
+        coords$group <- coords$prov
+        coords$group[coords$muni %in% twente] <- "Twente"
+        coords$group[coords$muni %in% achterhoek] <- "Achterhoek"
+        coords$group[coords$muni %in% tgooi] <- "tGooi"
+        coords$group[coords$muni %in% steden] <- coords$muni[coords$muni %in% steden]
+    }
+    return(coords)
+}
 
 add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.cities=F, inc.ethnicity=F) {
     P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
@@ -267,8 +285,10 @@ add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.citi
     m$muni[loc.known] <- as.character(locdata$name)
     m$prov[loc.known] <- as.character(locdata$province)
     m$group <- m$prov
-    if (inc.twente)
+    if (inc.twente) {
         m$group[m$muni %in% twente] <- "Twente"
+        m$group[m$muni %in% achterhoek] <- "Achterhoek"
+    }
     if (inc.tgooi)
         m$group[m$muni %in% tgooi] <- "tGooi"
     if (inc.cities)
@@ -291,24 +311,6 @@ add.ethnicity <- function(m=read.meta()) {
         m$eth[m$q08 == ethnicity.languages[i]] = as.character(ethnicities[j])
     }
     m
-}
-
-loc2muni.prov <- function(x, inc.regions=FALSE) {
-    P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
-    loc.known <- !is.na(x)
-    coords <- splitlocation(x)
-    loc <- SpatialPoints(coords[loc.known,], proj4string=P4S.latlon)
-    region <- NLD_muni
-    locp <- spTransform(loc, region@proj4string)
-    locdata <- over(locp, region)
-    coords$muni[loc.known] <- as.character(locdata$name)
-    coords$prov[loc.known] <- as.character(locdata$province)
-    if (inc.regions) {
-        coords$prov[coords$muni %in% twente] <- "Twente"
-        coords$prov[coords$muni %in% tgooi] <- "tGooi"
-        coords$prov[coords$muni %in% steden] <- coords$muni[coords$muni %in% steden]
-    }
-    return(coords)
 }
 
 select.eva <- function(a=read.csv("tables/answers.csv"), m=read.meta(), recordings=read.recordings(),
@@ -416,6 +418,48 @@ answer.dirk4 <- function(v = yesno.answers(read.answers("tables/answers.csv")), 
     x
 }
 
+answer.stef1 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
+    m <- add.muni.province(m, F, F, T, T)
+    v <- subset(v, qid %in% c("q53", "q56", "q57", "q59", "q67") & utype=="spontaneous")
+    v <- merge.muni.prov(v, m, "s")
+    v <- merge.muni.prov(v, m, "l")
+    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid, transform(v, count=1), sum)
+    x$value <- x$value / x$count
+    if (export) {
+        write.csv(aggregate(value ~ s.group + qid, x, mean), "tables/export/stef-speaker-group.csv")
+        write.csv(x, "tables/export/stef-speaker-listener-group.csv")
+    }
+    x
+}
+
+answer.stef2 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
+    m <- add.muni.province(m, F, F, T, T)
+    v <- subset(v, qid == "q68" & value != 4) ## accent strerkte
+    v$strongaccent <- v$value > 4
+    v <- merge.muni.prov(v, m, "s")
+    v <- merge.muni.prov(v, m, "l")
+    x <- aggregate(cbind(strongaccent, count) ~ s.group + l.group, transform(v, count=1), sum)
+    x$strongaccent <- x$strongaccent / x$count
+    if (export) {
+        write.csv(aggregate(strongaccent ~ s.group, x, mean), "tables/export/stef-accent-group.csv")
+        write.csv(x, "tables/export/stef-accent-listener-group.csv")
+    }
+    x
+}
+
+meta.eva1 <- function(listeners, m=read.meta(), export=FALSE) {
+    m <- subset(m, pid %in% listeners)
+    m3 <- loc2muni.prov(m$q03, T)[,-(1:3)]
+    names(m3) <- paste("q03", names(m3), sep=".")
+    m4 <- loc2muni.prov(m$q04, T)[,-(1:3)]
+    names(m4) <- paste("q04", names(m4), sep=".")
+    m <- cbind(m, m3, m4)
+    if (export) {
+        write.csv(m, "tables/export/eva-meta-listeners.csv")
+    }
+    m
+}
+
 read.recordings <- function() {
     recordings <- read.csv("tables/dump/recordings.csv")
     names(recordings)[2] <- "pid"
@@ -426,7 +470,8 @@ read.recordings <- function() {
 }
 
 ## simply add all metadata for all speakers and listeners
-select.borja <- function(a=read.csv("tables/answers.csv"), m=read.meta(), export=FALSE) {
+select.borja <- function(a=read.answers(), m=read.meta(), export=FALSE) {
+    m <- add.muni.province(m, T, T, T, T)
     n <- names(m)
     names(m) <- paste("s", n, sep=".")
     names(m)[1] <- "sid"
@@ -435,7 +480,7 @@ select.borja <- function(a=read.csv("tables/answers.csv"), m=read.meta(), export
     names(m)[1] <- "lid"
     a <- merge(a, m, by="lid")
     if (export) {
-        write.csv(file="tables/export/borja-answers.csv", a)
+        write.csv(a, file=gzfile("tables/export/borja-answers.csv.gz"))
     }
     a
 }
