@@ -385,22 +385,22 @@ answer.dirk2 <- function(a=read.csv("tables/answers.csv"), m=read.meta(), type="
 }
 
 ## rolechar is "l" for listener, "s" for speaker
-merge.muni.prov <- function(a, m, rolechar) {
+merge.muni.prov <- function(a, m, rolechar, sex=FALSE) {
     stopifnot(rolechar %in% c("s", "l"))
-    m <- data.frame(pid=m$pid, x.muni=m$muni, x.prov=m$prov, x.group=m$group)
-    for (i in 1:4) substr(names(m)[i], 1, 1) <- rolechar
+    m <- data.frame(pid=m$pid, x.muni=m$muni, x.prov=m$prov, x.group=m$group, x.sex=m$q07)
+    for (i in 1:5) substr(names(m)[i], 1, 1) <- rolechar
     merge(a, m, by=names(m)[1])
 }
 
 answer.dirk3 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
     m <- add.muni.province(m, T, T, T, T)
-    v <- merge.muni.prov(v, m, "s")
-    v <- merge.muni.prov(v, m, "l")
-    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid, transform(v, count=1), sum)
+    v <- merge.muni.prov(v, m, "s", T)
+    v <- merge.muni.prov(v, m, "l", T)
+    x <- aggregate(cbind(value, count) ~ s.group + l.group + s.sex + l.sex + qid, transform(v, count=1), sum)
     x$value <- x$value / x$count
     if (export) {
-        write.csv(aggregate(value ~ s.group + qid, x, mean), "tables/export/dirk-speaker-group.csv")
-        write.csv(x, "tables/export/dirk-speaker-listener-group.csv")
+        write.csv(aggregate(value ~ s.group + s.sex + l.sex + qid, x, mean), "tables/export/dirk-speaker-group-gender.csv")
+        write.csv(x, "tables/export/dirk-speaker-listener-group-gender.csv")
     }
     x
 }
@@ -418,20 +418,25 @@ answer.dirk4 <- function(v = yesno.answers(read.answers("tables/answers.csv")), 
     x
 }
 
-answer.stef1 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
+answer.stef1 <- function(v = value.answers(read.answers()), m=read.meta(), export=FALSE) {
     m <- add.muni.province(m, F, F, T, T)
+    accent <- aggregate(value ~ sid, subset(v, qid == "q68"), mean)
+    names(accent)[2] <- "accent"
+    accent$strong <- accent$accent > 4
     v <- subset(v, qid %in% c("q53", "q56", "q57", "q59", "q67") & utype=="spontaneous")
+    v <- merge(v, accent, by="sid")
     v <- merge.muni.prov(v, m, "s")
     v <- merge.muni.prov(v, m, "l")
-    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid, transform(v, count=1), sum)
+    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid + strong, transform(v, count=1), sum)
     x$value <- x$value / x$count
     if (export) {
-        write.csv(aggregate(value ~ s.group + qid, x, mean), "tables/export/stef-speaker-group.csv")
+        write.csv(aggregate(value ~ s.group + qid + strong, x, mean), "tables/export/stef-speaker-group.csv")
         write.csv(x, "tables/export/stef-speaker-listener-group.csv")
     }
     x
 }
 
+## this is not what stef meant
 answer.stef2 <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
     m <- add.muni.province(m, F, F, T, T)
     v <- subset(v, qid == "q68" & value != 4) ## accent strerkte
