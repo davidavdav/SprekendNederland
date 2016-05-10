@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import re, sys
+
+## see if we can extract sensible sentences from the COW texts. 
+
+grof = []
+for line in open("cow/aanstootgevend.txt"):
+    grof.append(line.strip())
+grof = re.compile("("+"|".join(grof)+")")
+
+r = re.compile("^([A-Za-z][a-z]+|[.,])$")
+cap = re.compile("^[A-Z]")
+
+for line in sys.stdin:
+    words = line.strip().split()
+    if not (8 <= len(words) <= 15) or not cap.match(line):
+        continue
+    ok = True
+    lastw = ""
+    for w in words:
+        if not r.match(w) or lastw == w or grof.search(w):
+            ok = False
+            break
+        lastw = w
+    if not ok:
+        continue
+    s = " ".join(words)
+    print str.replace(s, " ,", ",").replace(" .", ".")
+
