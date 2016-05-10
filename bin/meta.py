@@ -8,7 +8,7 @@
 from sqlalchemy import or_
 import logging, random, argparse
 
-from sn import *
+from sn.db import *
 from sn.tables import kmperdg
 
 def addto(d, key1, key2, value):

@@ -228,17 +228,17 @@ select.stef <- function(a=read.answers(), m=read.meta(), recordings=read.recordi
     ## geslacht, langst gewoond, geboortejaar
     base <- (!is.na(m$q07) & !is.na(m$q03) & !is.na(m$q05))
     age <- 2016 - m$q05
-    base <- base & (20 <= age) & (age <= 40)  & (m$q07 == "Man")
+    base <- base & (20 <= age) & (age <= 40)
     mm <- m[base,]
-    mm <- subset(mm, prov %in% c("Groningen", "Drenthe", "Gelderland", "Limburg", "Noord-Holland", "Zuid-Holland"))
+    mm <- subset(mm, prov %in% c("Groningen", "Drenthe", "Gelderland", "Limburg", "Noord-Holland", "Zuid-Holland", "Utrecht", "Overijssel"))
     mm$prov <- factor(mm$prov)
     ##
-    recordings <- subset(recordings, pid %in% mm$pid & text_group_id %in% c(1,9)) ## utype == "speech" or Frans' sentences
+    recordings <- subset(recordings, pid %in% mm$pid & text_group_id %in% c(1)) ## utype == SP1: Frans' sentences
     dur <- aggregate(cbind(nrec, dur) ~ pid, transform(recordings, nrec=1), sum)
     dur <- subset(dur, dur > 15)
     mm <- merge(mm, dur, by="pid")
     if (export) {
-        a <- subset(a, sid %in% mm$pid & utype=="speech")
+        a <- subset(a, sid %in% mm$pid & qlist == "SP1")
         recordings <- subset(recordings, pid %in% mm$pid)
         write.csv(file="tables/export/stef-meta.csv", m) ## all metadata
         write.csv(file="tables/export/stef-answers.csv", a)
@@ -450,6 +450,15 @@ answer.stef2 <- function(v = value.answers(read.answers("tables/answers.csv")), 
         write.csv(x, "tables/export/stef-accent-listener-group.csv")
     }
     x
+}
+
+answer.stef3 <- function(export=FALSE) {
+    astef <- subset(read.csv("tables/export/stef-answers.csv", row.names=1), qid %in% c("q75", "q76"))
+    astef <- cbind(astef, loc2muni.prov(as.character(astef$value)))
+    if (export) {
+        write.csv(astef, "tables/export/stef-answers-loc.csv")
+    }
+    astef
 }
 
 meta.eva1 <- function(listeners, m=read.meta(), export=FALSE) {

@@ -3,7 +3,7 @@
 
 ## can we find what is going on with answers without questions?
 
-from sn import *
+from sn.db import *
 from sqlalchemy import func
 
 import logging, argparse, sys

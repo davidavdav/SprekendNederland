@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ## (c) 2015 David A. van Leeuwen
 
-from sn import *
+from sn.db import *
 
 import argparse, sys
 

@@ -3,7 +3,7 @@
 
 ## faster select, do the joins in SQL.
 
-from sn import *
+from sn.db import *
 
 import argparse, sys
 
