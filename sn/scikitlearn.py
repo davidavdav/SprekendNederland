@@ -8,6 +8,7 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 
 import os
+import gzip
 
 def read_category(name):
     file = os.path.join("lists", "themes", name + ".txt")
@@ -18,7 +19,7 @@ def read_category(name):
 def read_categories():
     themes = []
     lines = []
-    categories = ["afgekeurd", "flirten", "muziek", "vakantie", "wonen"]
+    categories = ["other", "afgekeurd", "flirten", "kantine", "muziek", "vakantie", "verjaardag", "wonen"]
     for i, theme in enumerate(categories):
         l = read_category(theme)
         lines += l
@@ -33,3 +34,7 @@ def model():
                            ])
     return classifier.fit(lines, themes), categories
 
+def read_cow():
+    with gzip.open("data/cow-01.txt.gz") as fd:
+        lines = fd.readlines()
+        return lines

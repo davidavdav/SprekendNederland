@@ -9,7 +9,7 @@
 ## with a random Gaussian noise of approximately 1 km for privacy reasons.
 
 import os, math, random
-from . import Base, session
+from .db import Base, session
 
 
 def string(x):
@@ -24,9 +24,9 @@ def string(x):
 def writerow(fd, row):
     print >>fd, ",".join([string(x) for x in row])
 
-ignore = ["password_resets", "migrations", "messages", "sessions"]
+ignore = ["password_resets", "migrations", "messages", "sessions", "users"]
 earthcirc = 40075.0 ## km
-kmperdg =  {"longitude": earthcirc/360/math.sin(52*math.pi/180), "latitude": earthcirc/360}
+kmperdg =  {"longitude": earthcirc/360 * math.cos(52*math.pi/180), "latitude": earthcirc/360}
 
 def dump(dir="tables/dump", limited=True):
     m = Base.metadata

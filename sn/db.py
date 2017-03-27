@@ -4,7 +4,7 @@ from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session #, relationship
 from sqlalchemy import create_engine, MetaData #, Column, Integer, String, ForeignKey
 
-engine = create_engine("mysql://sn@127.0.0.1/sn")
+engine = create_engine("mysql://sn:sn@127.0.0.1/sn")
 
 Base = automap_base()
 

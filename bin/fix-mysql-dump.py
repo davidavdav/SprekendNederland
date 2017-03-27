@@ -7,11 +7,28 @@ import sys, re
 
 tablere = re.compile("CREATE TABLE `(\w+)`")
 keyre = re.compile("KEY `(\w+)_id_index` \(`(\w+)_id`\)")
+skipre = re.compile("(CREATE TABLE|LOCK TABLES|INSERT INTO|ALTER TABLE) `(users|password_resets)`")
+line1re = re.compile("(\s+KEY `sessions_user_id_index` \(`user_id`\)),")
+line2re = re.compile("\s+CONSTRAINT `sessions_user_id_foreign` FOREIGN KEY \(`user_id`\) REFERENCES `users` \(`id`\)")
 #keyre = re.compile("KEY")
 
 ignore = ["question_recording", "user"]
 
+skipping = False
 for line in sys.stdin:
+    if skipping:
+        if line.strip() == "":
+            skipping = False
+        continue
+    if skipre.search(line):
+        skipping = True
+        continue
+    m = line1re.match(line)
+    if m:
+        print m.group(1)
+        continue
+    if line2re.match(line):
+        continue
     m = tablere.search(line)
     if m:
         table = m.group(1)

@@ -5,6 +5,9 @@ read.meta <- function() {
     m <- read.csv("tables/meta-nodistort.csv")
     q33levels <- read.csv("q33.levels", header=F, stringsAsFactors=F)[[1]]
     m$q33 <- ordered(m$q33, levels=q33levels)
+    ## add some meta data
+    m$age <- 2016 - m$q05
+    m$sex <- m$q07
     m
 }
 
@@ -19,7 +22,7 @@ participants.date <- function() {
 }
 
 ## distribution of the nummer of recordings per speaker
-speaker.recording <- function() {
+speaker.recording1 <- function() {
     cmd <- mysql("select profile_id, count(*) as count from recordings group by profile_id")
     x <- read.table(pipe(cmd), header=F, col.names=c("pid", "nrec"))
     breaks <- 0:100
@@ -27,6 +30,11 @@ speaker.recording <- function() {
     h <- hist(xx$nrec, breaks=breaks, freq=T)
     plot(h, main="Histogram of number of recordings per speaker", xlab="number of recordings")
     x
+}
+
+speaker.recording <- function(recordings=read.recordings()) {
+    ta <- table(table(recordings$pid))
+    plot(as.numeric(names(ta)), as.numeric(ta), type="h", xlim=c(0,100), lwd=2, xlab="number of recordings", ylab="number of participants making ... recordings", main="Number of recordings per participant")
 }
 
 ## distribution of the number of answers per listener
@@ -76,14 +84,20 @@ speed <- function(what="answers", makeplot=T) {
     t
 }
 
-## 3: 2 dec 2015, 50: 18 jan 2016
-speed.log <- function(what="recordings", first=3, last=50) {
+## 3: 2 dec 2015, 50: 18 jan 2016, 154: 1 Mar 2016
+speed.log <- function(what="recordings", first=3, last=154) {
     t <- speed(what, makeplot=F)
+    t$second <- t$date >= as.Date("2016-01-28") ## Kennis van Nu met Stef en Rosemary
+    t$third <- t$date >= as.Date("2016-03-11") ## tijd voor Max
     main <- paste("Rate of receiving", what)
     ylab <- paste(what, "/ minute")
-    plot(speed ~ date, t, log="y", type="b", lwd=2, main=main, ylab=ylab)
-    m <- lm(log(speed, 10) ~ date, t, subset=first:last)
-    abline(m, col="blue")
+    plot(speed ~ date, t, log="y", type="b", lwd=2, main=main, ylab=ylab) # , ylim=c(0.05, 20))
+    m <- lm(log(speed, 10) ~ date + second + third, t, subset=first:last)
+    coef <- m$coefficients
+    abline(coef[1], coef[2], col="blue")
+    abline(coef[1]+coef[3], coef[2], col="blue")
+    abline(coef[1]+coef[3]+coef[4], coef[2], col="blue")
+    cat("Fitted line:", 100*(1-10^coef[2]), "% drop per day\n")
     m
 }
 
@@ -95,28 +109,41 @@ speed.daily <- function(x, what="answers") {
     plot(d$time, d$y * d$n / ndays, main=paste("Average daily rate of receiving", what), type="l", lwd=2, xlab="time", ylab="entries / second")
 }
 
-plot.age <- function() {
+plot.age <- function(m=read.meta()) {
+    levels(m$sex) <- c("different", "male", "female")
+    ggplot(subset(m, sex != "different"), aes(x=age, group=sex, fill=sex)) + geom_histogram(position="dodge", binwidth=5) + xlim(0, 100) + ggtitle("Distribution of participant's age and sex") + theme(text=element_text(size=20))
+}
+
+plot.age1 <- function() {
     x <- read.table(pipe(mysql("select answers.profile_id, answers.answer_numeric from tasks join answers where tasks.answer_id=answers.id and tasks.question_id=5")), header=F, col.names=c("pid", "year"))
     x$age <- 2016 - x$year
     hist(x$age, breaks=seq(0, 120, by=5), col=grey(0.8), xlim=c(0,100), main="Histogram of age", xlab="participant's age")
     x
 }
 
+plot.complete.meta <- function(m=read.meta()) {
+    ta <- table(apply(!is.na(m), 1, sum)-1)
+    plot(as.integer(names(ta)), as.numeric(ta), xlab="number of metadata questions answered", ylab="Number of participants having ... metadata questions answered", main="Metatdata completeness", type="h", lwd=2)
+}
+
 library(ggplot2)
 library(ggmap)
 if (!"map_nl" %in% ls())
     map_nl <- get_map(location="Netherlands", zoom=7)
-map <-function() {
-    x <- read.csv("tables/meta.csv")
-    loc <- splitlocation(x$q04)
+map <-function(m=read.csv("tables/meta-nodistort"), q="q04") {
+    loc <- splitlocation(m[[q]])
+    m <- add.muni.province(m, q="q04")
+    loc <- cbind(loc, col=factor(m$prov))
     ##    map <- get_map(location = c(left=3, right=7.5, bottom=50.5, top=54), source="osm")
     palette(heat.colors(21))
     ggmap(map_nl) +
-        geom_point(data=loc, aes(x=long, y=lat), size=0.5, col="purple", alpha=0.5) +
-        geom_density2d(data=loc, aes(x=long, y=lat), size=0.5, col="red") +
-        stat_density2d(data=loc, aes(x=long, y=lat, fill=..level.., alpha=..level..), size=0.1, geom="polygon") +
-        scale_fill_gradient(low = "green", high = "red") +
-        scale_alpha(range = c(0, 0.3))
+        geom_point(data=loc, aes(x=long, y=lat, colour=col), size=2, alpha=1) +
+        geom_point(data=loc, aes(x=long, y=lat), col="black", size=0.5, alpha=0.5) +
+##        geom_density2d(data=loc, aes(x=long, y=lat), size=0.5, col="red") +
+##        stat_density2d(data=loc, aes(x=long, y=lat, fill=..level.., alpha=..level..), size=0.1, geom="polygon") +
+##        scale_fill_gradient(low = "green", high = "red") +
+        theme(legend.position="none") +
+        coord_cartesian(xlim=c(3.1,7.4), ylim=c(50.6, 53.5))
 }
 
 
@@ -173,7 +200,11 @@ renorm.answers <- function(x) {
 }
 
 splitlocation <- function(x) {
-    coords <- data.frame(do.call(rbind, lapply(strsplit(as.character(x), "/"), as.numeric)))
+    split <- function(x) {
+        if (is.na(x)) c(NA, NA, NA)
+        else strsplit(as.character(x), "/")
+    }
+    coords <- data.frame(do.call(rbind, lapply(split(x), as.numeric)))
     names(coords) <- c("long", "lat", "zoom")
     coords
 }
@@ -181,21 +212,63 @@ splitlocation <- function(x) {
 ## analysis using tmap
 library(tmap)
 library(sp)
-data(NLD_prov, NLD_muni)
+data(NLD_prov, NLD_muni, World)
 ## style="quantile", n=10, convert2density=T
-plot.tmap <- function(region=NLD_prov, ...) {
-    m <- read.csv("tables/meta.csv")
-    P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
-    loc <- SpatialPoints(splitlocation(m$q04[!is.na(m$q04)]), proj4string=P4S.latlon)
+plot.tmap <- function(region=NLD_prov, q=read.csv("tables/meta.csv")$q04, title="Sprekend Nederland participation", ...) {
+    P4s.Latlon <- CRS("+proj=longlat +datum=WGS84")
+    loc <- SpatialPoints(splitlocation(q[!is.na(q)]), proj4string=P4S.latlon)
     locp <- spTransform(loc, region@proj4string)
     a <- aggregate(count ~ name, transform(over(locp, region), count=1), sum)
     a <- merge(region@data, a, by="name", all.x=T)
     region@data <- a[order(a$code),]
     g <- tm_shape(region) +
-        tm_fill("count", title="Sprekend Nederland participation", ...) +
-        tm_borders() + tm_layout(frame=F, outer.margins=c(0,0,0,0))
+        tm_fill("count", title=title, ...) +
+        tm_borders() + tm_layout(frame=F, outer.margins=c(0,0,0,0), bg.color="transparent", legend.title.size = 2)
     print(g)
     region
+}
+
+## replot the above, but with relative participation
+plot.tmap.relative <- function(region, ...) {
+    region@data <- transform(region@data, rel=1000 * count / population)
+    g <- tm_shape(region) +
+        tm_fill("rel", title="Participation / population\nin promille", ...) +
+        tm_borders() + tm_layout(frame=F, outer.margins=c(0,0,0,0), bg.color="transparent", legend.title.size = 2)
+    print(g)
+}
+
+## compes all distances from lat/lon/zoom matrix from splitlocation()
+distances <- function(m=read.meta(), q="q03") {
+    m <- m[!is.na(m[[q]]),]
+    llz <- splitlocation(m[[q]])
+    P4s.Latlon <- CRS("+proj=longlat +datum=WGS84")
+    loc <- SpatialPoints(llz, proj4string=P4S.latlon)
+    locp <- spTransform(loc, World@proj4string)
+    inNL <- transform(over(locp, World))$name == "Netherlands"
+    inNL[is.na(inNL)] <- FALSE
+    llz <- llz[inNL,]
+    ma <- as.matrix(llz[,1:2])
+    m <- m[inNL,]
+    d <- spDists(ma, longlat=TRUE)
+    dimnames(d) <- list(row.names(m), row.names(m))
+    return(d)
+}
+
+adddist <- function(a, m=read.meta(), d=distances(m, "q03")) {
+    validids <- rownames(d)
+    validanswers <- a$lid %in% validids & a$sid %in% validids
+    index <- cbind(as.character(a[["lid"]]), as.character(a[["sid"]]))
+    a$dist <- NA
+    a$dist[validanswers] <- d[index[validanswers,]]
+    return(a)
+}
+
+## ad: adddist()
+plot.dist.hist <- function(ad, classes=FALSE) {
+    if (classes)
+    hist(ad$dist, col="gray", main="Distances between speaker and listener", xlab="distance (km)", breaks=c(0,10,20,40,80,310))
+    else
+    hist(ad$dist, col="gray", main="Distances between speaker and listener", xlab="distance (km)")
 }
 
 extract.martijn.wieling <- function(a=read.csv("tables/answers.csv"), m=read.csv("tables/meta.csv"),
@@ -275,10 +348,10 @@ loc2muni.prov <- function(x, inc.regions=FALSE) {
     return(coords)
 }
 
-add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.cities=F, inc.ethnicity=F) {
+add.muni.province <- function(m=read.meta(), inc.twente=F, inc.tgooi=F, inc.cities=F, inc.ethnicity=F, q="q03") {
     P4S.latlon <- CRS("+proj=longlat +datum=WGS84")
-    loc.known <- !is.na(m$q03)
-    loc <- SpatialPoints(splitlocation(m$q03[loc.known]), proj4string=P4S.latlon)
+    loc.known <- !is.na(m[[q]])
+    loc <- SpatialPoints(splitlocation(m[[q]][loc.known]), proj4string=P4S.latlon)
     region <- NLD_muni
     locp <- spTransform(loc, region@proj4string)
     locdata <- over(locp, region)
@@ -474,6 +547,17 @@ meta.eva1 <- function(listeners, m=read.meta(), export=FALSE) {
     m
 }
 
+## answers by specific listeners for Eva
+answers.eva2 <- function(a, export=FALSE) {
+    listeners <- unique(read.csv("tables/import/metadata_listeners_subset.csv", sep=';')$pid)
+    qids <- paste("q", c(53:74, 79, 83:90), sep="")
+    a <- subset(a, qid %in% qids & lid %in% listeners)
+    if (export) {
+        write.csv(a, "tables/export/eva-answers-2.csv")
+    }
+    a
+}
+
 read.recordings <- function() {
     recordings <- read.csv("tables/dump/recordings.csv")
     names(recordings)[2] <- "pid"
@@ -497,4 +581,93 @@ select.borja <- function(a=read.answers(), m=read.meta(), export=FALSE) {
         write.csv(a, file=gzfile("tables/export/borja-answers.csv.gz"))
     }
     a
+}
+
+## can we correlated answers from the same listeners about the same speakers?
+
+renumber <- function(a) {
+    a$value <- as.numeric(as.character(a$value))
+    return(a)
+}
+
+correlate <- function(a, questions) {
+    a1 <- renumber(subset(a, qid==q1))
+    a2 <- renumber(subset(a, qid==q2))
+    bynames <- names(a)[! names(a) %in% c("qid", "value")]
+    merge(a1, a2, by=c("lid", "sid", "prompt", "atype", "qlist", "utype"))
+}
+
+prompts <- function(a, ql) {
+    a <- subset(a, qlist==ql)
+    a$prompt <- factor(a$prompt)
+    a$prompt
+}
+
+## find prompts with all recordings
+read.recordings2 <- function () {
+    read.table(pipe(mysql("select texts.text, texts.text_group_id, recordings.id from recordings join tasks, task_text, texts  where recordings.id = tasks.recording_id and task_text.task_id = tasks.id and texts.id = task_text.text_id")), sep="\t", col.names = c("text", "tgid", "rid"))
+}
+
+select.aki <- function(a, m, export=FALSE) {
+    m <- subset(m, q08 %in% c("Nederlands", "Fries") & !is.na(q01) & !is.na(q02) & !is.na(q03) & !is.na(q04) & !is.na(q21) & ! is.na(q31) & !is.na(q32))
+    for (q in c("q03", "q04", "q21", "q31", "q32")) {
+        loc <- splitlocation(m[[q]])
+        names(loc) <- paste(q, names(loc), sep=".")
+        m <- cbind(m, loc)
+    }
+    if (export) {
+        write.csv(m, "tables/export/aki-meta.csv")
+    }
+    m
+}
+
+## similar, but for martijn: all data
+select.martijn <- function(m, r=read.recordings(), export=FALSE) {
+    m <- subset(m, !is.na(q01) & !is.na(q02) & !is.na(q03) & !is.na(q04) & !is.na(q21) & ! is.na(q31) & !is.na(q32))
+    for (q in c("q03", "q04", "q21", "q31", "q32")) {
+        loc <- splitlocation(m[[q]])
+        names(loc) <- paste(q, names(loc), sep=".")
+        m <- cbind(m, loc)
+    }
+    r <- subset(r, r$pid %in% m$pid)
+    if (export) {
+        write.csv(m, "tables/export/martijn-meta.csv")
+        text = read.csv("tables/recordings.csv")
+    }
+    m
+}
+
+
+## add recording text to aki's recording data, for martijn
+add.martijn <- function(aki=read.csv("tables/export/aki-recordings.csv"), text=read.csv("tables/recordings.csv"), export=FALSE) {
+    text = text[,c("rid", "text")]
+    aki = aki[,-1] ## remove "X"
+    names(aki)[3] <- "rid"
+    x <- merge(aki, text, by="rid")
+    if (export) {
+        write.csv(x, "tables/export/martijn-recordings.csv", row.names=F)
+    }
+}
+
+large.groups <- function(m) {
+    m$group[m$prov %in% c("Groningen", "Friesland", "Drenthe")] <- "Noord"
+    m$group[m$prov %in% c("Overijssel", "Gelderland")] <- "Oost"
+    m$group[m$prov %in% c("Noord-Brabant", "Limbirg")] <- "Zuid"
+    m$group[m$prov %in% c("Noord-Holland", "Zuid-Holland", "Utrecht")] <- "Randstad"
+    m <- subset(m, group %in% c("Noord", "Oost", "Zuid", "Randstad"))
+    return(m)
+}
+
+## as answer.dirk3
+answer.lieke <- function(v = value.answers(read.answers("tables/answers.csv")), m=read.meta(), export=FALSE) {
+    m <- large.groups(add.muni.province(m, F, F, F, F))
+    v <- merge.muni.prov(v, m, "s", F)
+    v <- merge.muni.prov(v, m, "l", F)
+    x <- aggregate(cbind(value, count) ~ s.group + l.group + qid, transform(v, count=1), sum)
+    x$value <- x$value / x$count
+    if (export) {
+        write.csv(aggregate(value ~ s.group + qid, x, mean), "tables/export/lieke-speaker-group.csv")
+        write.csv(x, "tables/export/lieke-speaker-listener-group.csv")
+    }
+    x
 }
